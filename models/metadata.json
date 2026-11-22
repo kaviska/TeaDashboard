@@ -1,0 +1,132 @@
+{
+  "target": "log(price_mid_lkr)",
+  "categorical": [
+    "catalogue",
+    "category",
+    "elevation",
+    "segment",
+    "grade",
+    "tier",
+    "region",
+    "text_crop_change"
+  ],
+  "numeric": [
+    "temperature_2m_mean_mean",
+    "precipitation_sum_total_lag1",
+    "temperature_2m_mean_mean_lag1",
+    "precipitation_sum_total_lag2",
+    "temperature_2m_mean_mean_lag2",
+    "precipitation_sum_total_lag3",
+    "temperature_2m_mean_mean_lag3",
+    "avg_weather_severity",
+    "sale_month",
+    "weeks_since_start",
+    "sunshine_hours_total_lag1",
+    "sunshine_hours_total_lag2",
+    "sunshine_hours_total_lag3",
+    "n_keywords"
+  ],
+  "features": [
+    "catalogue",
+    "category",
+    "elevation",
+    "segment",
+    "grade",
+    "tier",
+    "region",
+    "text_crop_change",
+    "temperature_2m_mean_mean",
+    "precipitation_sum_total_lag1",
+    "temperature_2m_mean_mean_lag1",
+    "precipitation_sum_total_lag2",
+    "temperature_2m_mean_mean_lag2",
+    "precipitation_sum_total_lag3",
+    "temperature_2m_mean_mean_lag3",
+    "avg_weather_severity",
+    "sale_month",
+    "weeks_since_start",
+    "sunshine_hours_total_lag1",
+    "sunshine_hours_total_lag2",
+    "sunshine_hours_total_lag3",
+    "n_keywords"
+  ],
+  "numeric_ranges": {
+    "temperature_2m_mean_mean": [
+      14.03,
+      24.86,
+      27.67
+    ],
+    "precipitation_sum_total_lag1": [
+      1.0,
+      50.6,
+      462.3
+    ],
+    "temperature_2m_mean_mean_lag1": [
+      14.03,
+      25.0,
+      27.67
+    ],
+    "precipitation_sum_total_lag2": [
+      1.0,
+      53.6,
+      462.3
+    ],
+    "temperature_2m_mean_mean_lag2": [
+      13.94,
+      25.0,
+      27.54
+    ],
+    "precipitation_sum_total_lag3": [
+      1.0,
+      53.4,
+      462.3
+    ],
+    "temperature_2m_mean_mean_lag3": [
+      14.03,
+      25.03,
+      27.67
+    ],
+    "avg_weather_severity": [
+      1.0,
+      3.0,
+      4.0
+    ],
+    "sale_month": [
+      1.0,
+      7.0,
+      12.0
+    ],
+    "weeks_since_start": [
+      3.0,
+      56.0,
+      127.0
+    ],
+    "sunshine_hours_total_lag1": [
+      16.1613,
+      66.45547222222223,
+      82.62056666666666
+    ],
+    "sunshine_hours_total_lag2": [
+      16.1613,
+      64.76590833333333,
+      82.57258055555555
+    ],
+    "sunshine_hours_total_lag3": [
+      16.1613,
+      64.331875,
+      82.62056666666666
+    ],
+    "n_keywords": [
+      0.0,
+      2.0,
+      5.0
+    ]
+  },
+  "best_model": "Stacking (RF+XGB+KNN+Ridge)",
+  "stack_weights": {
+    "rf": 0.988,
+    "xgb": 0.012,
+    "knn": 0.0,
+    "ridge": 0.0
+  }
+}
