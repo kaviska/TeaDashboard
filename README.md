@@ -16,8 +16,9 @@ tea_dashboard/
 ├── app.py                  # the dashboard
 ├── requirements.txt        # exact library versions (must match the versions that saved the models)
 ├── .streamlit/config.toml  # colours
+├── assets/logo.svg         # sidebar logo
 ├── data/tea_model_ready.csv
-└── models/                 # saved models + results from Part 2
+└── models/                 # stacking + bagging models, results, pre-computed charts
 ```
 
 ## Run on your own computer
@@ -29,7 +30,7 @@ streamlit run app.py
 ## Deploy free on Streamlit Community Cloud
 1. Create a free account at https://github.com and make a **new public repository** (e.g. `tea-price-dashboard`).
 2. Click **Add file → Upload files** and upload everything in this folder, keeping the folders
-   (`models/`, `data/`, `.streamlit/`). Each file is under GitHub's 25 MB browser-upload limit.
+   (`models/`, `data/`, `assets/`, `.streamlit/`). Each file is under GitHub's 25 MB browser-upload limit.
    Tip: `.streamlit` is a hidden folder; if it doesn't upload, create the file
    `.streamlit/config.toml` in GitHub with **Add file → Create new file** and paste its contents.
 3. Go to https://share.streamlit.io, sign in with GitHub, click **Create app → Deploy a public app from GitHub**.
@@ -39,7 +40,9 @@ streamlit run app.py
 
 ## Using your own Colab models instead (optional)
 The `models/` folder already contains working models. To use the ones from your own Colab run:
-1. Unzip `tea_models.zip` from Part 2 into `models/` (replace the files).
+1. Copy `stacking.joblib`, `bagging.joblib`, `results.csv`, `test_predictions.csv`, `tea_types.csv` and
+   `metadata.json` from your Part 2 output into `models/`. The app takes the Random Forest and XGBoost from
+   inside the stacking model, so their separate files are not needed (this keeps memory use low).
 2. In Colab, run:
    ```python
    import sklearn, xgboost, numpy, pandas, joblib, sys

@@ -37,13 +37,16 @@ def nice(s):
 # ------------------------------------------------------------------ loading
 @st.cache_resource(show_spinner="Loading models…")
 def load_models():
-    models = {}
-    for label, fname in MODEL_FILES.items():
-        path = MODELS_DIR / fname
-        if not path.exists() and fname == "xgboost.joblib":
-            path = MODELS_DIR / "gradient_boosting.joblib"
-        if path.exists():
-            models[label] = joblib.load(path)
+    # The stacking model already contains fitted copies of the Random Forest and XGBoost
+    # (identical to the separately saved ones), so they are reused instead of loading them again.
+    stack = joblib.load(MODELS_DIR / "stacking.joblib")
+    bagging = joblib.load(MODELS_DIR / "bagging.joblib")
+    models = {"Random Forest (bagging)": stack.named_estimators_["rf"],
+              "Bagging (decision trees)": bagging,
+              "XGBoost (boosting)": stack.named_estimators_["xgb"],
+              "Stacking (RF + XGB + KNN + Ridge)": stack}
+    for m in [bagging, stack.named_estimators_["rf"], stack.named_estimators_["xgb"]]:
+        m.named_steps["model"].set_params(n_jobs=1)
     return models
 
 
@@ -94,104 +97,10 @@ models = load_models()
 meta, results, preds, types, data = load_tables()
 CAT, NUM, FEATURES = meta["categorical"], meta["numeric"], meta["features"]
 
-# ------------------------------------------------------------------ sidebar
-st.markdown("""
-<style>
-/* ---------- sidebar shell ---------- */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #12352f 0%, #0d2622 100%);
-    border-right: 1px solid rgba(255,255,255,0.06);
-}
-[data-testid="stSidebar"] * { color: #d7e7e3; }
-[data-testid="stSidebarContent"] { padding-top: 0.5rem; }
-[data-testid="stSidebarUserContent"] { padding-top: 1rem; }
 
-/* ---------- brand ---------- */
-.nav-brand { display: flex; align-items: center; gap: 12px; padding: 4px 4px 18px;
-             border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 18px; }
-.nav-logo { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
-            font-size: 22px; background: linear-gradient(135deg, #2a9d8f, #1f7a6f);
-            box-shadow: 0 4px 12px rgba(42,157,143,0.35); flex-shrink: 0; }
-.nav-title { font-size: 1.05rem; font-weight: 700; color: #ffffff !important; line-height: 1.2; }
-.nav-sub { font-size: 0.72rem; color: #8fb3ab !important; margin-top: 2px; }
-.nav-section { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-               color: #6f958c !important; margin: 4px 6px 8px; }
 
-/* ---------- nav items (restyled st.radio) ---------- */
-[data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px; }
-[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {
-    width: 100%; margin: 0; padding: 10px 14px; border-radius: 10px; cursor: pointer;
-    border-left: 3px solid transparent; transition: background 0.15s ease, border-color 0.15s ease;
-}
-[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child {
-    display: none;   /* hide the radio circle */
-}
-[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] p {
-    font-size: 0.92rem; font-weight: 500; color: #c3d8d3;
-}
-[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:hover {
-    background: rgba(255,255,255,0.06);
-}
-[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) {
-    background: rgba(42,157,143,0.22); border-left-color: #2a9d8f;
-}
-[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) p {
-    color: #ffffff; font-weight: 600;
-}
-
-/* ---------- KPI card ---------- */
-.nav-card { margin-top: 22px; padding: 14px 16px; border-radius: 12px;
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
-.nav-card-label { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: #6f958c !important; }
-.nav-card-model { font-size: 0.9rem; font-weight: 600; color: #ffffff !important; margin: 4px 0 12px; }
-.nav-card-row { display: flex; align-items: baseline; gap: 8px; }
-.nav-card-value { font-size: 1.5rem; font-weight: 700; color: #ffffff !important; }
-.nav-card-badge { font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
-                  background: rgba(42,157,143,0.25); color: #7fdccf !important; }
-.nav-card-hint { font-size: 0.72rem; color: #8fb3ab !important; margin-top: 2px; }
-
-/* ---------- footer ---------- */
-.nav-footer { margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);
-              font-size: 0.7rem; line-height: 1.5; color: #6f958c !important; }
-</style>
-""", unsafe_allow_html=True)
-
-st.sidebar.markdown("""
-<div class="nav-brand">
-  <div class="nav-logo">🍃</div>
-  <div>
-    <div class="nav-title">Tea Auction Price</div>
-    <div class="nav-sub">Colombo · Nov 2023 – Mar 2026</div>
-  </div>
-</div>
-<div class="nav-section">Menu</div>
-""", unsafe_allow_html=True)
-
-page = st.sidebar.radio("Go to", ["💰 Price estimator", "📊 Model comparison",
-                                  "🌳 How the ensembles work", "🔍 Insights", "ℹ️ About the data"],
-                        label_visibility="collapsed")
-
-best_row = results[results.family != "Baseline"].sort_values("MAE").iloc[0]
-st.sidebar.markdown(f"""
-<div class="nav-card">
-  <div class="nav-card-label">Best model</div>
-  <div class="nav-card-model">{best_row['model']}</div>
-  <div class="nav-card-label">Average error</div>
-  <div class="nav-card-row">
-    <span class="nav-card-value">Rs {best_row['MAE']:.0f}</span>
-    <span class="nav-card-badge">{best_row['MAPE_%']:.1f}%</span>
-  </div>
-  <div class="nav-card-hint">per kg (mean absolute error)</div>
-</div>
-<div class="nav-footer">
-  Data: Forbes &amp; Walker weekly auction reports + Open-Meteo weather<br>
-  Hugging Face · colombo-tea-auction-prices · CC BY 4.0
-</div>
-""", unsafe_allow_html=True)
-
-# ================================================================== PAGE 1
-if page == "💰 Price estimator":
-    st.title("💰 Fair-price estimator")
+def page_estimator():
+    st.title("Fair-price estimator")
     st.write("Choose a tea and the conditions. Every ensemble model estimates the auction price (LKR per kg) "
              "from the tea's characteristics, the month and the recent weather in its growing region.")
 
@@ -303,9 +212,10 @@ if page == "💰 Price estimator":
     st.caption("The model estimates what this kind of tea should fetch under these conditions. It does not know "
                "last week's actual price, so it cannot anticipate sudden market moves (see Insights).")
 
-# ================================================================== PAGE 2
-elif page == "📊 Model comparison":
-    st.title("📊 Model comparison")
+
+
+def page_comparison():
+    st.title("Model comparison")
     st.write("All models were trained on auctions from **Nov 2023 – Oct 2025** and tested on the latest "
              "**21 auctions (Oct 2025 – Mar 2026)** they never saw — a time-based split, like real use.")
 
@@ -314,15 +224,14 @@ elif page == "📊 Model comparison":
     single = r[r.family == "Single model"].iloc[0]
     tea_avg = r[r.model == "Tea-type average"].iloc[0] if (r.model == "Tea-type average").any() else None
     k1.metric("Best model", best_row["model"].split(" (")[0])
-    k2.metric("Average error (MAE)", f"Rs {best_row['MAE']:.0f} / kg", f"{best_row['MAPE_%']:.1f}% of price",
-              delta_color="off")
+    k2.metric(f"Average error ({best_row['MAPE_%']:.1f}%)", f"Rs {best_row['MAE']:.0f}/kg")
     k3.metric("R²", f"{best_row['R2']:.3f}")
-    k4.metric(f"vs best single model ({single['model']})",
-              f"{(1 - best_row['MAE'] / single['MAE']) * 100:.0f}% lower error")
+    k4.metric(f"Lower error than {single['model']}", f"{(1 - best_row['MAE'] / single['MAE']) * 100:.0f}%")
 
     fig = px.bar(r.sort_values("MAE", ascending=False), x="MAE", y="model", color="family", orientation="h",
                  color_discrete_map=FAMILY_COLORS, text=r.sort_values("MAE", ascending=False)["MAE"].round(0),
                  labels={"MAE": "Test MAE (LKR per kg) — lower is better", "model": ""})
+    fig.update_yaxes(categoryorder="total descending")
     fig.update_layout(height=480, margin=dict(l=10, r=10, t=30, b=10), legend_title="")
     st.plotly_chart(fig, width="stretch")
 
@@ -361,9 +270,10 @@ elif page == "📊 Model comparison":
     st.write("**Error by catalogue**")
     st.dataframe(err.round(1).rename(index=nice), width="stretch")
 
-# ================================================================== PAGE 3
-elif page == "🌳 How the ensembles work":
-    st.title("🌳 How the ensembles work")
+
+
+def page_ensembles():
+    st.title("How the ensembles work")
     tab1, tab2, tab3 = st.tabs(["Bagging", "Boosting", "Stacking"])
 
     with tab1:
@@ -375,10 +285,10 @@ of the training data (drawn *with replacement*), and **averages** their predicti
 - Averaging many different trees cancels out their individual mistakes → **lower variance**, better accuracy.
 - **Random Forest** = bagging + a random subset of features at each split, making the trees even more different.
 """)
-        if data is not None and "Random Forest (bagging)" in models:
-            test = data[data.split == "test"]
-            curve, single_mae = bagging_curve(models["Random Forest (bagging)"], test[FEATURES],
-                                              test.price_mid_lkr.values)
+        curve_file = MODELS_DIR / "bagging_curve.csv"
+        if curve_file.exists():
+            curve = pd.read_csv(curve_file)
+            single_mae = float(curve["single_tree_MAE"].iloc[0])
             fig = px.line(curve, x="trees", y="MAE", markers=True, log_x=True,
                           labels={"trees": "Number of trees averaged (log scale)", "MAE": "Test MAE (LKR)"})
             fig.add_hline(y=single_mae, line_dash="dash", line_color="#e76f51",
@@ -433,15 +343,28 @@ so the model improves step by step (mainly reduces **bias**). We used **XGBoost*
                     "almost entirely on it — so stacking matched Random Forest rather than beating it. "
                     "Stacking helps most when the base models are similarly strong but make different mistakes.")
 
-# ================================================================== PAGE 4
-elif page == "🔍 Insights":
-    st.title("🔍 What drives tea prices?")
+
+
+def page_insights():
+    st.title("What drives tea prices?")
     if "Random Forest (bagging)" in models:
-        imp = grouped_importance(models["Random Forest (bagging)"], FEATURES, CAT)
+        imp_file = MODELS_DIR / "feature_importance.csv"
+        imp = (pd.read_csv(imp_file, index_col=0)["importance"] if imp_file.exists()
+               else grouped_importance(models["Random Forest (bagging)"], FEATURES, CAT))
         labels = {"tier": "Quality tier", "category": "Category", "grade": "Grade", "catalogue": "Catalogue",
                   "elevation": "Elevation", "segment": "Segment", "region": "Region",
                   "weeks_since_start": "Time trend", "sale_month": "Month", "text_crop_change": "Crop change (report)",
-                  "avg_weather_severity": "Weather severity", "n_keywords": "Report keywords"}
+                  "avg_weather_severity": "Weather severity", "n_keywords": "Report keywords",
+                  "temperature_2m_mean_mean": "Temperature (sale week)",
+                  "temperature_2m_mean_mean_lag1": "Temperature 1 week before",
+                  "temperature_2m_mean_mean_lag2": "Temperature 2 weeks before",
+                  "temperature_2m_mean_mean_lag3": "Temperature 3 weeks before",
+                  "precipitation_sum_total_lag1": "Rainfall 1 week before",
+                  "precipitation_sum_total_lag2": "Rainfall 2 weeks before",
+                  "precipitation_sum_total_lag3": "Rainfall 3 weeks before",
+                  "sunshine_hours_total_lag1": "Sunshine 1 week before",
+                  "sunshine_hours_total_lag2": "Sunshine 2 weeks before",
+                  "sunshine_hours_total_lag3": "Sunshine 3 weeks before"}
         top = imp.head(12)
         fig = px.bar(x=top.values[::-1] * 100, y=[labels.get(i, i.replace("_", " ")) for i in top.index[::-1]],
                      orientation="h", labels={"x": "Importance (%)", "y": ""}, color_discrete_sequence=["#2a9d8f"])
@@ -485,9 +408,10 @@ elif page == "🔍 Insights":
                  "different question: *what should this kind of tea fetch under these conditions?* — useful when "
                  "there is no recent price, for planning ahead, and for judging whether a price is fair.")
 
-# ================================================================== PAGE 5
-else:
-    st.title("ℹ️ About the data and method")
+
+
+def page_about():
+    st.title("About the data and method")
     st.markdown("""
 **Dataset:** *Weather-Driven Sri Lankan Tea Market Catalogues* (Hugging Face `colombo-tea-auction-prices/cta-price-prediction`, CC BY 4.0)
 - Prices from 105 weekly **Forbes & Walker Tea Brokers** auction reports, Nov 2023 – Mar 2026
@@ -515,3 +439,53 @@ else:
     if data is not None:
         st.write("**Sample of the modelling data**")
         st.dataframe(data.head(20), width="stretch")
+
+
+# ------------------------------------------------------------------ layout
+best_row = results[results.family != "Baseline"].sort_values("MAE").iloc[0]
+
+st.markdown("""
+<style>
+[data-testid="stSidebar"] { background: #0f3b2e; }
+[data-testid="stSidebar"] * { color: #e8f3ef; }
+[data-testid="stSidebarNav"] { padding-top: 0.5rem; }
+[data-testid="stSidebarNavLink"] { border-radius: 8px; margin: 2px 0; padding: 6px 10px; }
+[data-testid="stSidebarNavLink"]:hover { background: rgba(255,255,255,0.08); }
+[data-testid="stSidebarNavLink"][aria-current="page"] { background: #2a9d8f; }
+[data-testid="stSidebarNavLink"][aria-current="page"] span { color: #ffffff !important; font-weight: 600; }
+[data-testid="stNavSectionHeader"] { color: #9fd8cb !important; text-transform: uppercase;
+                                     letter-spacing: 0.08em; font-size: 0.72rem; margin-top: 0.8rem; }
+.side-card { background: rgba(255,255,255,0.07); border-radius: 10px; padding: 12px 14px; margin: 6px 0 10px 0; }
+.side-card .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #9fd8cb; }
+.side-card .value { font-size: 1.35rem; font-weight: 700; color: #ffffff; line-height: 1.3; }
+.side-card .sub { font-size: 0.8rem; color: #cfe6df; }
+[data-testid="stSidebarHeader"] { padding-top: 1.2rem; }
+[data-testid="stSidebarLogo"] { height: 3.4rem !important; }
+[data-testid="stMetric"] { background: #f1f7f5; border: 1px solid #dcebe6; border-radius: 10px; padding: 12px 14px; }
+</style>
+""", unsafe_allow_html=True)
+
+st.logo(str(BASE / "assets" / "logo.svg"), size="large")
+
+nav = st.navigation({
+    "Predict": [st.Page(page_estimator, title="Price estimator", icon=":material/payments:", default=True)],
+    "Models": [st.Page(page_comparison, title="Model comparison", icon=":material/leaderboard:"),
+               st.Page(page_ensembles, title="How ensembles work", icon=":material/account_tree:")],
+    "Data": [st.Page(page_insights, title="Insights", icon=":material/insights:"),
+             st.Page(page_about, title="About the data", icon=":material/info:")],
+})
+
+with st.sidebar:
+    st.markdown(
+        f"""<div class="side-card"><div class="label">Best model</div>
+        <div class="value">{best_row['model'].split(' (')[0]}</div>
+        <div class="sub">Average error Rs {best_row['MAE']:.0f}/kg · {best_row['MAPE_%']:.1f}% · R² {best_row['R2']:.3f}</div></div>""",
+        unsafe_allow_html=True)
+    st.markdown(
+        f"""<div class="side-card"><div class="label">Test period</div>
+        <div class="value">21 auctions</div>
+        <div class="sub">Oct 2025 – Mar 2026, never seen in training</div></div>""",
+        unsafe_allow_html=True)
+    st.caption("Data: Forbes & Walker auction reports + Open-Meteo weather · Hugging Face, CC BY 4.0")
+
+nav.run()

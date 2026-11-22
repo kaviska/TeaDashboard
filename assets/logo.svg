@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="72" viewBox="0 0 300 72">
+  <path d="M6 60 C6 28 28 10 58 10 C58 42 40 62 10 62 Z" fill="#2a9d8f"/>
+  <path d="M11 58 C24 44 36 32 52 20" stroke="#0f3b2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <text x="72" y="36" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">Tea Price</text>
+  <text x="73" y="60" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#9fd8cb">Ensemble ML dashboard</text>
+</svg>
