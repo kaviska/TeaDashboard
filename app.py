@@ -95,15 +95,99 @@ meta, results, preds, types, data = load_tables()
 CAT, NUM, FEATURES = meta["categorical"], meta["numeric"], meta["features"]
 
 # ------------------------------------------------------------------ sidebar
-st.sidebar.title("🍃 Tea Auction Price")
-st.sidebar.caption("Ensemble learning dashboard — Colombo Tea Auction (Nov 2023 – Mar 2026)")
+st.markdown("""
+<style>
+/* ---------- sidebar shell ---------- */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #12352f 0%, #0d2622 100%);
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+[data-testid="stSidebar"] * { color: #d7e7e3; }
+[data-testid="stSidebarContent"] { padding-top: 0.5rem; }
+[data-testid="stSidebarUserContent"] { padding-top: 1rem; }
+
+/* ---------- brand ---------- */
+.nav-brand { display: flex; align-items: center; gap: 12px; padding: 4px 4px 18px;
+             border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 18px; }
+.nav-logo { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+            font-size: 22px; background: linear-gradient(135deg, #2a9d8f, #1f7a6f);
+            box-shadow: 0 4px 12px rgba(42,157,143,0.35); flex-shrink: 0; }
+.nav-title { font-size: 1.05rem; font-weight: 700; color: #ffffff !important; line-height: 1.2; }
+.nav-sub { font-size: 0.72rem; color: #8fb3ab !important; margin-top: 2px; }
+.nav-section { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+               color: #6f958c !important; margin: 4px 6px 8px; }
+
+/* ---------- nav items (restyled st.radio) ---------- */
+[data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px; }
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {
+    width: 100%; margin: 0; padding: 10px 14px; border-radius: 10px; cursor: pointer;
+    border-left: 3px solid transparent; transition: background 0.15s ease, border-color 0.15s ease;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child {
+    display: none;   /* hide the radio circle */
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] p {
+    font-size: 0.92rem; font-weight: 500; color: #c3d8d3;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:hover {
+    background: rgba(255,255,255,0.06);
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) {
+    background: rgba(42,157,143,0.22); border-left-color: #2a9d8f;
+}
+[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) p {
+    color: #ffffff; font-weight: 600;
+}
+
+/* ---------- KPI card ---------- */
+.nav-card { margin-top: 22px; padding: 14px 16px; border-radius: 12px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+.nav-card-label { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: #6f958c !important; }
+.nav-card-model { font-size: 0.9rem; font-weight: 600; color: #ffffff !important; margin: 4px 0 12px; }
+.nav-card-row { display: flex; align-items: baseline; gap: 8px; }
+.nav-card-value { font-size: 1.5rem; font-weight: 700; color: #ffffff !important; }
+.nav-card-badge { font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+                  background: rgba(42,157,143,0.25); color: #7fdccf !important; }
+.nav-card-hint { font-size: 0.72rem; color: #8fb3ab !important; margin-top: 2px; }
+
+/* ---------- footer ---------- */
+.nav-footer { margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);
+              font-size: 0.7rem; line-height: 1.5; color: #6f958c !important; }
+</style>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+<div class="nav-brand">
+  <div class="nav-logo">🍃</div>
+  <div>
+    <div class="nav-title">Tea Auction Price</div>
+    <div class="nav-sub">Colombo · Nov 2023 – Mar 2026</div>
+  </div>
+</div>
+<div class="nav-section">Menu</div>
+""", unsafe_allow_html=True)
+
 page = st.sidebar.radio("Go to", ["💰 Price estimator", "📊 Model comparison",
-                                  "🌳 How the ensembles work", "🔍 Insights", "ℹ️ About the data"])
+                                  "🌳 How the ensembles work", "🔍 Insights", "ℹ️ About the data"],
+                        label_visibility="collapsed")
+
 best_row = results[results.family != "Baseline"].sort_values("MAE").iloc[0]
-st.sidebar.markdown(f"**Best model:** {best_row['model']}  \n**Average error:** Rs {best_row['MAE']:.0f} per kg "
-                    f"({best_row['MAPE_%']:.1f}%)")
-st.sidebar.caption("Data: Forbes & Walker weekly auction reports + Open-Meteo weather "
-                   "(Hugging Face: colombo-tea-auction-prices, CC BY 4.0)")
+st.sidebar.markdown(f"""
+<div class="nav-card">
+  <div class="nav-card-label">Best model</div>
+  <div class="nav-card-model">{best_row['model']}</div>
+  <div class="nav-card-label">Average error</div>
+  <div class="nav-card-row">
+    <span class="nav-card-value">Rs {best_row['MAE']:.0f}</span>
+    <span class="nav-card-badge">{best_row['MAPE_%']:.1f}%</span>
+  </div>
+  <div class="nav-card-hint">per kg (mean absolute error)</div>
+</div>
+<div class="nav-footer">
+  Data: Forbes &amp; Walker weekly auction reports + Open-Meteo weather<br>
+  Hugging Face · colombo-tea-auction-prices · CC BY 4.0
+</div>
+""", unsafe_allow_html=True)
 
 # ================================================================== PAGE 1
 if page == "💰 Price estimator":
