@@ -123,9 +123,9 @@
   },
   "best_model": "Stacking (RF+XGB+LGBM+CatBoost)",
   "stack_weights": {
-    "rf": 0.796,
+    "rf": 0.786,
     "xgb": 0.0,
     "lgbm": 0.0,
-    "cat": 0.204
+    "cat": 0.214
   }
 }
