@@ -1,12 +1,12 @@
 # Colombo Tea Auction — Ensemble Learning Dashboard
 
 A Streamlit dashboard that estimates the fair auction price of Sri Lankan tea (LKR per kg) using
-**bagging** (Random Forest, Bagging), **boosting** (XGBoost) and **stacking** ensembles.
+**bagging** (Random Forest, Bagging), **gradient boosting** (XGBoost, LightGBM, CatBoost) and **stacking** ensembles.
 
 ## Pages
 1. **Price estimator** — pick a tea (catalogue, grade, tier, region), month and weather → price from every model
 2. **Model comparison** — single models vs bagging vs boosting vs stacking on the test period
-3. **How the ensembles work** — bagging tree-count curve, boosting vs bagging, stacking weights
+3. **How the ensembles work** — bagging tree-count curve, Random Forest vs gradient boosting, stacking weights
 4. **Insights** — what drives tea prices, and the "same as last week" finding
 5. **About the data** — dataset, cleaning steps, limitations
 
@@ -18,7 +18,7 @@ tea_dashboard/
 ├── .streamlit/config.toml  # colours
 ├── assets/logo.svg         # sidebar logo
 ├── data/tea_model_ready.csv
-└── models/                 # stacking + bagging models, results, pre-computed charts
+└── models/                 # stacking (contains RF, XGBoost, LightGBM, CatBoost) + bagging, results, charts
 ```
 
 ## Run on your own computer
@@ -41,8 +41,8 @@ streamlit run app.py
 ## Using your own Colab models instead (optional)
 The `models/` folder already contains working models. To use the ones from your own Colab run:
 1. Copy `stacking.joblib`, `bagging.joblib`, `results.csv`, `test_predictions.csv`, `tea_types.csv` and
-   `metadata.json` from your Part 2 output into `models/`. The app takes the Random Forest and XGBoost from
-   inside the stacking model, so their separate files are not needed (this keeps memory use low).
+   `metadata.json` from your Part 2 output into `models/`. The app takes the Random Forest, XGBoost, LightGBM and CatBoost
+   from inside the stacking model, so their separate files are not needed (this keeps memory use low).
 2. In Colab, run:
    ```python
    import sklearn, xgboost, numpy, pandas, joblib, sys

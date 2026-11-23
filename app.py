@@ -21,12 +21,13 @@ st.set_page_config(page_title="Tea Auction Price — Ensemble Learning", page_ic
 
 FAMILY_COLORS = {"Baseline": "#adb5bd", "Single model": "#8ecae6", "Bagging": "#2a9d8f",
                  "Boosting": "#f4a261", "Stacking": "#e76f51"}
-MODEL_FILES = {"Random Forest (bagging)": "random_forest.joblib",
-               "Bagging (decision trees)": "bagging.joblib",
-               "XGBoost (boosting)": "xgboost.joblib",
-               "Stacking (RF + XGB + KNN + Ridge)": "stacking.joblib"}
-MODEL_FAMILY = {"Random Forest (bagging)": "Bagging", "Bagging (decision trees)": "Bagging",
-                "XGBoost (boosting)": "Boosting", "Stacking (RF + XGB + KNN + Ridge)": "Stacking"}
+STACK_LABEL = "Stacking (RF + XGB + LGBM + CatBoost)"
+MODEL_FAMILY = {"Random Forest": "Bagging", "Bagging": "Bagging", "XGBoost": "Boosting",
+                "LightGBM": "Boosting", "CatBoost": "Boosting", STACK_LABEL: "Stacking"}
+# which row of results.csv each dashboard model corresponds to
+RESULT_NAME = {"Random Forest": "Random Forest (tuned)", "Bagging": "Bagging (100 trees)",
+               "XGBoost": "XGBoost (tuned)", "LightGBM": "LightGBM", "CatBoost": "CatBoost",
+               STACK_LABEL: "Stacking (RF+XGB+LGBM+CatBoost)"}
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
@@ -37,15 +38,14 @@ def nice(s):
 # ------------------------------------------------------------------ loading
 @st.cache_resource(show_spinner="Loading models…")
 def load_models():
-    # The stacking model already contains fitted copies of the Random Forest and XGBoost
-    # (identical to the separately saved ones), so they are reused instead of loading them again.
+    # The stacking model already contains the fitted Random Forest, XGBoost, LightGBM and CatBoost,
+    # so they are taken from it instead of being loaded separately.
     stack = joblib.load(MODELS_DIR / "stacking.joblib")
     bagging = joblib.load(MODELS_DIR / "bagging.joblib")
-    models = {"Random Forest (bagging)": stack.named_estimators_["rf"],
-              "Bagging (decision trees)": bagging,
-              "XGBoost (boosting)": stack.named_estimators_["xgb"],
-              "Stacking (RF + XGB + KNN + Ridge)": stack}
-    for m in [bagging, stack.named_estimators_["rf"], stack.named_estimators_["xgb"]]:
+    base = stack.named_estimators_
+    models = {"Random Forest": base["rf"], "Bagging": bagging, "XGBoost": base["xgb"],
+              "LightGBM": base["lgbm"], "CatBoost": base["cat"], STACK_LABEL: stack}
+    for m in [bagging, base["rf"], base["xgb"], base["lgbm"]]:
         m.named_steps["model"].set_params(n_jobs=1)
     return models
 
@@ -178,14 +178,14 @@ def page_estimator():
     st.divider()
     st.subheader("Estimated auction price")
     est = {name: float(np.exp(m.predict(X))[0]) for name, m in models.items()}
-    best_label = min(MODEL_FILES, key=lambda k: results.set_index("model")["MAE"].get(
-        {"Random Forest (bagging)": "Random Forest (300 trees)", "Bagging (decision trees)": "Bagging (100 trees)",
-         "XGBoost (boosting)": "XGBoost (tuned)", "Stacking (RF + XGB + KNN + Ridge)": "Stacking (RF+XGB+KNN+Ridge)"}[k],
-        np.inf) if k in est else np.inf)
+    mae_by_model = results.set_index("model")["MAE"]
+    best_label = min(est, key=lambda k: mae_by_model.get(RESULT_NAME[k], np.inf))
     best_mae = float(best_row["MAE"])
-    cols = st.columns(len(est))
-    for col, (name, val) in zip(cols, est.items()):
-        col.metric(name + (" ⭐" if name == best_label else ""), f"Rs {val:,.0f}")
+    names = list(est)
+    for start in range(0, len(names), 3):
+        cols = st.columns(3)
+        for col, name in zip(cols, names[start:start + 3]):
+            col.metric(name + (" ⭐" if name == best_label else ""), f"Rs {est[name]:,.0f}")
 
     b = est.get(best_label, np.mean(list(est.values())))
     st.success(f"**Fair-price estimate: Rs {b:,.0f} per kg** (typical range Rs {b - best_mae:,.0f} – "
@@ -199,7 +199,7 @@ def page_estimator():
         if len(hist):
             fig.add_vline(x=hist.price_mid_lkr.mean(), line_dash="dash", line_color="#6c757d",
                           annotation_text="historical average of this tea", annotation_position="top")
-    fig.update_layout(height=280, margin=dict(l=10, r=40, t=30, b=10), xaxis_title="LKR per kg")
+    fig.update_layout(height=360, margin=dict(l=10, r=40, t=30, b=10), xaxis_title="LKR per kg")
     st.plotly_chart(fig, width="stretch")
 
     if data is not None and len(hist):
@@ -300,17 +300,18 @@ of the training data (drawn *with replacement*), and **averages** their predicti
             st.info(f"One tree: about Rs {single_mae:.0f} error. All {int(curve.trees.max())} trees averaged: "
                     f"Rs {curve.MAE.iloc[-1]:.0f}. That drop is the variance reduction of bagging.")
         rb = results.set_index("model")
-        if {"Bagging (100 trees)", "Random Forest (300 trees)"} <= set(rb.index):
+        if {"Bagging (100 trees)", "Random Forest (tuned)"} <= set(rb.index):
             st.write(f"Plain bagging of trees: **Rs {rb.loc['Bagging (100 trees)', 'MAE']:.0f}** · "
-                     f"Random Forest: **Rs {rb.loc['Random Forest (300 trees)', 'MAE']:.0f}** — the extra feature "
+                     f"Random Forest: **Rs {rb.loc['Random Forest (tuned)', 'MAE']:.0f}** — the extra feature "
                      "randomness makes the trees more diverse, so averaging helps more.")
 
     with tab2:
         st.markdown("""
 **Boosting** builds trees **one after another**. Each new tree focuses on the errors the previous trees made,
-so the model improves step by step (mainly reduces **bias**). We used **XGBoost**.
+so the model improves step by step (mainly reduces **bias**). We compared the three common gradient-boosting
+libraries: **XGBoost**, **LightGBM** and **CatBoost**.
 
-| | Bagging (Random Forest) | Boosting (XGBoost) |
+| | Bagging (Random Forest) | Gradient boosting |
 |---|---|---|
 | How trees are built | Independently, in parallel | Sequentially, each fixes the last |
 | Main effect | Reduces variance | Reduces bias |
@@ -318,8 +319,19 @@ so the model improves step by step (mainly reduces **bias**). We used **XGBoost*
 """)
         rb = results.set_index("model")
         rf_m = rb.loc[[m for m in rb.index if m.startswith("Random Forest")], "MAE"].min()
-        xg_m = rb.loc[[m for m in rb.index if m.startswith(("XGBoost", "Gradient"))], "MAE"].min()
-        st.info(f"On this data **bagging won**: Random Forest Rs {rf_m:.0f} vs XGBoost Rs {xg_m:.0f}.")
+        comp = pd.DataFrame({"model": ["Random Forest", "XGBoost", "LightGBM", "CatBoost"],
+                             "MAE": [rf_m,
+                                     rb.loc[[m for m in rb.index if m.startswith("XGBoost")], "MAE"].min(),
+                                     rb.loc["LightGBM", "MAE"] if "LightGBM" in rb.index else np.nan,
+                                     rb.loc["CatBoost", "MAE"] if "CatBoost" in rb.index else np.nan]})
+        comp["family"] = ["Bagging", "Boosting", "Boosting", "Boosting"]
+        fig = px.bar(comp, x="model", y="MAE", color="family", color_discrete_map=FAMILY_COLORS,
+                     text=comp["MAE"].round(1), labels={"MAE": "Test MAE (LKR/kg)", "model": ""})
+        fig.update_layout(height=340, margin=dict(l=10, r=10, t=40, b=10), legend_title="",
+                          title="Random Forest vs gradient boosting")
+        st.plotly_chart(fig, width="stretch")
+        st.info(f"On this data **Random Forest won** (Rs {rf_m:.1f}). With a fairly small tabular dataset and "
+                "strong categorical features, averaging many independent trees was more reliable than boosting.")
 
     with tab3:
         st.markdown("""
@@ -327,11 +339,11 @@ so the model improves step by step (mainly reduces **bias**). We used **XGBoost*
 **meta-model** learns how much to trust each one. The meta-model is trained on *out-of-fold* predictions
 (predictions on rows a base model did not train on), so it does not simply trust over-fitted models.
 
-`Random Forest + XGBoost + KNN + Ridge  →  meta-model (weights ≥ 0)  →  final price`
+`Random Forest + XGBoost + LightGBM + CatBoost  →  meta-model (weights ≥ 0)  →  final price`
 """)
         w = pd.Series(meta.get("stack_weights", {}))
         if len(w):
-            w.index = [{"rf": "Random Forest", "xgb": "XGBoost", "knn": "KNN", "ridge": "Ridge", "gb": "Gradient Boosting"}
+            w.index = [{"rf": "Random Forest", "xgb": "XGBoost", "lgbm": "LightGBM", "cat": "CatBoost"}
                        .get(i, i) for i in w.index]
             fig = px.bar(x=w.values * 100, y=w.index, orientation="h", text=[f"{v:.1%}" for v in w.values],
                          labels={"x": "Share of the final prediction (%)", "y": ""},
@@ -339,18 +351,18 @@ so the model improves step by step (mainly reduces **bias**). We used **XGBoost*
             fig.update_layout(height=280, margin=dict(l=10, r=10, t=30, b=10),
                               title="How much the meta-model trusts each base model")
             st.plotly_chart(fig, width="stretch")
-            st.info("The meta-model learned that Random Forest was by far the strongest base model and relied "
-                    "almost entirely on it — so stacking matched Random Forest rather than beating it. "
-                    "Stacking helps most when the base models are similarly strong but make different mistakes.")
+            st.info("Random Forest gets most of the weight. The rest goes to the boosting model whose mistakes "
+                    "differ most from Random Forest's; models that make the same mistakes add nothing and get "
+                    "zero weight. Combining them makes stacking slightly better than Random Forest alone.")
 
 
 
 def page_insights():
     st.title("What drives tea prices?")
-    if "Random Forest (bagging)" in models:
+    if "Random Forest" in models:
         imp_file = MODELS_DIR / "feature_importance.csv"
         imp = (pd.read_csv(imp_file, index_col=0)["importance"] if imp_file.exists()
-               else grouped_importance(models["Random Forest (bagging)"], FEATURES, CAT))
+               else grouped_importance(models["Random Forest"], FEATURES, CAT))
         labels = {"tier": "Quality tier", "category": "Category", "grade": "Grade", "catalogue": "Catalogue",
                   "elevation": "Elevation", "segment": "Segment", "region": "Region",
                   "weeks_since_start": "Time trend", "sale_month": "Month", "text_crop_change": "Crop change (report)",
@@ -426,8 +438,9 @@ def page_about():
 
 **Modelling (Part 2)**
 - Target: log(price); features: tea characteristics, month, weather, broker-report text
-- Baselines (averages, Linear Regression, Decision Tree, KNN) → **Bagging** (BaggingRegressor, Random Forest)
-  → **Boosting** (XGBoost) → **Stacking** (RF + XGBoost + KNN + Ridge, non-negative meta-model)
+- Baselines (tea-type average, a single decision tree) → **Bagging** (BaggingRegressor, Random Forest)
+  → **Gradient boosting** (XGBoost, LightGBM, CatBoost) → **Stacking** (RF + XGBoost + LightGBM + CatBoost,
+  non-negative linear meta-model)
 - Time-aware cross-validation for hyperparameter tuning
 
 **Limitations**

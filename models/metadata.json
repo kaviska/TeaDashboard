@@ -1,5 +1,4 @@
 {
-  "target": "log(price_mid_lkr)",
   "categorical": [
     "catalogue",
     "category",
@@ -12,18 +11,18 @@
   ],
   "numeric": [
     "temperature_2m_mean_mean",
-    "precipitation_sum_total_lag1",
     "temperature_2m_mean_mean_lag1",
-    "precipitation_sum_total_lag2",
     "temperature_2m_mean_mean_lag2",
-    "precipitation_sum_total_lag3",
     "temperature_2m_mean_mean_lag3",
-    "avg_weather_severity",
-    "sale_month",
-    "weeks_since_start",
+    "precipitation_sum_total_lag1",
+    "precipitation_sum_total_lag2",
+    "precipitation_sum_total_lag3",
     "sunshine_hours_total_lag1",
     "sunshine_hours_total_lag2",
     "sunshine_hours_total_lag3",
+    "avg_weather_severity",
+    "sale_month",
+    "weeks_since_start",
     "n_keywords"
   ],
   "features": [
@@ -36,18 +35,18 @@
     "region",
     "text_crop_change",
     "temperature_2m_mean_mean",
-    "precipitation_sum_total_lag1",
     "temperature_2m_mean_mean_lag1",
-    "precipitation_sum_total_lag2",
     "temperature_2m_mean_mean_lag2",
-    "precipitation_sum_total_lag3",
     "temperature_2m_mean_mean_lag3",
-    "avg_weather_severity",
-    "sale_month",
-    "weeks_since_start",
+    "precipitation_sum_total_lag1",
+    "precipitation_sum_total_lag2",
+    "precipitation_sum_total_lag3",
     "sunshine_hours_total_lag1",
     "sunshine_hours_total_lag2",
     "sunshine_hours_total_lag3",
+    "avg_weather_severity",
+    "sale_month",
+    "weeks_since_start",
     "n_keywords"
   ],
   "numeric_ranges": {
@@ -56,50 +55,35 @@
       24.86,
       27.67
     ],
-    "precipitation_sum_total_lag1": [
-      1.0,
-      50.6,
-      462.3
-    ],
     "temperature_2m_mean_mean_lag1": [
       14.03,
       25.0,
       27.67
-    ],
-    "precipitation_sum_total_lag2": [
-      1.0,
-      53.6,
-      462.3
     ],
     "temperature_2m_mean_mean_lag2": [
       13.94,
       25.0,
       27.54
     ],
-    "precipitation_sum_total_lag3": [
-      1.0,
-      53.4,
-      462.3
-    ],
     "temperature_2m_mean_mean_lag3": [
       14.03,
       25.03,
       27.67
     ],
-    "avg_weather_severity": [
+    "precipitation_sum_total_lag1": [
       1.0,
-      3.0,
-      4.0
+      50.6,
+      462.3
     ],
-    "sale_month": [
+    "precipitation_sum_total_lag2": [
       1.0,
-      7.0,
-      12.0
+      53.6,
+      462.3
     ],
-    "weeks_since_start": [
-      3.0,
-      56.0,
-      127.0
+    "precipitation_sum_total_lag3": [
+      1.0,
+      53.4,
+      462.3
     ],
     "sunshine_hours_total_lag1": [
       16.1613,
@@ -116,17 +100,32 @@
       64.331875,
       82.62056666666666
     ],
+    "avg_weather_severity": [
+      1.0,
+      3.0,
+      4.0
+    ],
+    "sale_month": [
+      1.0,
+      7.0,
+      12.0
+    ],
+    "weeks_since_start": [
+      3.0,
+      56.0,
+      127.0
+    ],
     "n_keywords": [
       0.0,
       2.0,
       5.0
     ]
   },
-  "best_model": "Stacking (RF+XGB+KNN+Ridge)",
+  "best_model": "Stacking (RF+XGB+LGBM+CatBoost)",
   "stack_weights": {
-    "rf": 0.988,
-    "xgb": 0.012,
-    "knn": 0.0,
-    "ridge": 0.0
+    "rf": 0.796,
+    "xgb": 0.0,
+    "lgbm": 0.0,
+    "cat": 0.204
   }
 }
